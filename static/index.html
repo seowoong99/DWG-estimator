@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>DWG 견적 자동화 시스템</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f4f4f4;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+    }
+    input[type="file"] {
+      display: block;
+      margin-bottom: 1rem;
+    }
+    button {
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 1rem;
+      background: #e8f0fe;
+      padding: 1rem;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>DWG 파일 자동 견적</h2>
+    <form id="uploadForm">
+      <input type="file" id="dwgFile" name="file" accept=".dwg" required />
+      <button type="submit">물량 산출</button>
+    </form>
+    <div class="result" id="resultBox" style="display:none">
+      <p>물량산출서가 생성되었습니다!</p>
+      <a id="downloadLink" href="#" target="_blank">물량산출서 다운로드</a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const resultBox = document.getElementById('resultBox');
+    const downloadLink = document.getElementById('downloadLink');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('dwgFile');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      const response = await fetch('/upload/', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      if (result.result_file) {
+        const fileName = result.result_file.split('/').pop();
+        downloadLink.href = `/download/${fileName}`;
+        downloadLink.innerText = `다운로드: ${fileName}`;
+        resultBox.style.display = 'block';
+      } else {
+        alert('물량 산출 실패: ' + result.error);
+      }
+    });
+  </script>
+</body>
+</html>
