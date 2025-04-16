@@ -12,7 +12,6 @@ app = FastAPI()
 UPLOAD_DIR = "./uploads"
 RESULT_DIR = "./results"
 
-# 디렉토리 생성
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
@@ -27,45 +26,53 @@ async def upload_dwg(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # DWG 파일 읽기
         doc = ezdxf.readfile(file_path)
         msp = doc.modelspace()
 
-        block_counts = {}
-        wire_length = 0.0
+        block_details = []
+        wire_lengths = {}
 
         for entity in msp:
             if entity.dxftype() == 'INSERT':
                 block_name = entity.dxf.name
-                block_counts[block_name] = block_counts.get(block_name, 0) + 1
+                layer = entity.dxf.layer
+                x = round(entity.dxf.insert.x, 2)
+                y = round(entity.dxf.insert.y, 2)
+                block_details.append({"name": block_name, "layer": layer, "x": x, "y": y})
+
             elif entity.dxftype() in ['LINE', 'LWPOLYLINE']:
-                layer_name = entity.dxf.layer.lower()
-                if 'wire' in layer_name or 'cable' in layer_name or '배선' in layer_name:
+                layer_name = entity.dxf.layer
+                if any(k in layer_name.lower() for k in ['wire', 'cable', '배선']):
                     try:
-                        length = entity.length()
-                        wire_length += length
+                        length = entity.length() / 1000
+                        wire_lengths[layer_name] = wire_lengths.get(layer_name, 0) + round(length, 2)
                     except Exception:
                         pass
 
-        # 물량 산출표 생성
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "물량산출"
-        ws.append(["항목명", "수량"])
+        ws.append(["항목명", "Layer", "X 좌표", "Y 좌표"])
 
-        for name, count in block_counts.items():
-            ws.append([name, count])
+        for item in block_details:
+            ws.append([item['name'], item['layer'], item['x'], item['y']])
 
-        if wire_length > 0:
-            wire_m = round(wire_length / 1000, 2)  # mm -> m
-            ws.append(["배선길이 (m)", wire_m])
+        ws2 = wb.create_sheet("배선길이")
+        ws2.append(["Layer", "길이 (m)"])
+        for layer, length in wire_lengths.items():
+            ws2.append([layer, length])
 
         result_path = os.path.join(RESULT_DIR, f"{file_id}_물량산출서.xlsx")
         wb.save(result_path)
 
         return JSONResponse(content={
             "message": "물량 산출 완료",
-            "result_file": result_path
+            "result_file": result_path,
+            "summary": {
+                "block_count": len(block_details),
+                "wire_layer_count": len(wire_lengths),
+                "file_name": f"{file_id}_물량산출서.xlsx"
+            }
         })
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})

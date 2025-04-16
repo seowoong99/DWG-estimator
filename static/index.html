@@ -2,30 +2,35 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>DWG 견적 자동화 시스템</title>
+  <title>DWG 자동 물량산출 시스템</title>
   <style>
     body {
       font-family: sans-serif;
-      background-color: #f4f4f4;
+      background-color: #f9f9f9;
       padding: 2rem;
     }
     .container {
-      max-width: 600px;
+      max-width: 700px;
       margin: auto;
       background: white;
       padding: 2rem;
-      border-radius: 8px;
+      border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h2 {
+    h1, h2 {
       text-align: center;
+    }
+    .section {
+      margin-top: 2rem;
     }
     input[type="file"] {
       display: block;
-      margin-bottom: 1rem;
+      margin: 1rem auto;
     }
     button {
-      padding: 0.7rem 1.5rem;
+      display: block;
+      margin: 1rem auto;
+      padding: 0.7rem 2rem;
       font-size: 1rem;
       background-color: #007bff;
       color: white;
@@ -33,24 +38,47 @@
       border-radius: 5px;
       cursor: pointer;
     }
-    .result {
+    .result, .loading {
       margin-top: 1rem;
-      background: #e8f0fe;
       padding: 1rem;
       border-radius: 5px;
+      text-align: center;
     }
+    .result { background: #e8f0fe; }
+    .loading { background: #fff3cd; color: #856404; display: none; }
+    .summary { margin-top: 1rem; font-size: 0.9rem; color: #333; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>DWG 파일 자동 견적</h2>
+    <h1>DWG 자동 물량산출</h1>
+
+    <div class="section">
+      <h2>📘 이 웹사이트는?</h2>
+      <p>전기도면(DWG 파일)을 업로드하면 자동으로<br>
+         <strong>전기기구 수량, 위치, 레이어 정보</strong>와 <strong>배선 길이</strong>를 분석하여<br>
+         물량산출서(엑셀)를 생성하는 도구입니다.</p>
+    </div>
+
+    <div class="section">
+      <h2>🛠 사용 방법</h2>
+      <ol>
+        <li>DWG 파일을 선택하고 '물량 산출' 버튼을 클릭하세요.</li>
+        <li>분석이 완료되면 다운로드 링크가 생성됩니다.</li>
+        <li>다운로드된 엑셀 파일을 열어 결과를 확인하세요.</li>
+      </ol>
+    </div>
+
     <form id="uploadForm">
       <input type="file" id="dwgFile" name="file" accept=".dwg" required />
       <button type="submit">물량 산출</button>
     </form>
+
+    <div class="loading" id="loadingBox">🔄 분석 중입니다... 잠시만 기다려주세요.</div>
     <div class="result" id="resultBox" style="display:none">
-      <p>물량산출서가 생성되었습니다!</p>
+      <p>📥 물량산출서가 생성되었습니다!</p>
       <a id="downloadLink" href="#" target="_blank">물량산출서 다운로드</a>
+      <div class="summary" id="summaryBox"></div>
     </div>
   </div>
 
@@ -58,26 +86,40 @@
     const form = document.getElementById('uploadForm');
     const resultBox = document.getElementById('resultBox');
     const downloadLink = document.getElementById('downloadLink');
+    const summaryBox = document.getElementById('summaryBox');
+    const loadingBox = document.getElementById('loadingBox');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      resultBox.style.display = 'none';
+      loadingBox.style.display = 'block';
+
       const fileInput = document.getElementById('dwgFile');
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
 
-      const response = await fetch('/upload/', {
-        method: 'POST',
-        body: formData
-      });
+      try {
+        const response = await fetch('/upload/', {
+          method: 'POST',
+          body: formData
+        });
+        const result = await response.json();
+        loadingBox.style.display = 'none';
 
-      const result = await response.json();
-      if (result.result_file) {
-        const fileName = result.result_file.split('/').pop();
-        downloadLink.href = `/download/${fileName}`;
-        downloadLink.innerText = `다운로드: ${fileName}`;
-        resultBox.style.display = 'block';
-      } else {
-        alert('물량 산출 실패: ' + result.error);
+        if (result.result_file) {
+          const fileName = result.result_file.split('/').pop();
+          downloadLink.href = `/download/${fileName}`;
+          downloadLink.innerText = `📥 ${fileName} 다운로드`;
+          resultBox.style.display = 'block';
+
+          const s = result.summary;
+          summaryBox.innerHTML = `📦 전기기구 수: ${s.block_count}개<br>🔌 배선 종류 수: ${s.wire_layer_count}종류`;
+        } else {
+          alert('분석 실패: ' + result.error);
+        }
+      } catch (error) {
+        loadingBox.style.display = 'none';
+        alert('에러 발생: ' + error);
       }
     });
   </script>
