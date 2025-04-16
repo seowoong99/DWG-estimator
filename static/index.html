@@ -99,7 +99,7 @@
       formData.append('file', fileInput.files[0]);
 
       try {
-        const response = await fetch('/upload/', {
+        const response = await fetch('https://dwg-estimator.onrender.com/upload/', {
           method: 'POST',
           body: formData
         });
@@ -108,7 +108,7 @@
 
         if (result.result_file) {
           const fileName = result.result_file.split('/').pop();
-          downloadLink.href = `/download/${fileName}`;
+          downloadLink.href = `https://dwg-estimator.onrender.com/download/${fileName}`;
           downloadLink.innerText = `📥 ${fileName} 다운로드`;
           resultBox.style.display = 'block';
 
